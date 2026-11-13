@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "probehub-probe"
+version = "0.1.0"
+description = "ProbeHub client: collects data and sends it to the hub (stdlib only)"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.scripts]
+probehub-probe = "probe.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

@@ -1,0 +1,23 @@
+# Reverse SSH tunnel that publishes the hub on the VPS as http://<vps-ip>:8100.
+# Install on the machine that runs the hub (replace <vps-ip>; the VPS login is whatever
+# account your other autossh tunnels use):
+#   sudo cp deploy/probehub-tunnel.service.example /etc/systemd/system/probehub-tunnel.service
+#   sudo nano /etc/systemd/system/probehub-tunnel.service     # set <vps-ip>, User, ssh port
+#   sudo systemctl daemon-reload && sudo systemctl enable --now probehub-tunnel
+# Needs on the VPS: sshd `GatewayPorts yes` (or clientspecified) and the firewall open for 8100/tcp
+#   (sudo ufw allow 8100/tcp).
+[Unit]
+Description=AutoSSH ProbeHub (VPS 8100 to Local 8100)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=biswalab
+Environment="AUTOSSH_GATETIME=0"
+ExecStart=/usr/bin/autossh -M 0 -N -o "ServerAliveInterval 30" -o "ServerAliveCountMax 3" -o "ExitOnForwardFailure yes" -o "Port 443" -R 8100:localhost:8100 root@<vps-ip>
+
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
