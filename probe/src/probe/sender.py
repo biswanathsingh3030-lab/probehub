@@ -22,12 +22,17 @@ def build_envelope(probe_id: str, category: str, data: dict[str, Any]) -> dict[s
     }
 
 
-def send(hub_url: str, envelope: dict[str, Any], timeout: float = 10.0) -> dict[str, Any]:
+def send(
+    hub_url: str, envelope: dict[str, Any], token: str = "", timeout: float = 10.0
+) -> dict[str, Any]:
     url = hub_url.rstrip("/") + INGEST_PATH
+    headers = {"Content-Type": "application/json"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
     request = urllib.request.Request(
         url,
         data=json.dumps(envelope).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
+        headers=headers,
         method="POST",
     )
     try:

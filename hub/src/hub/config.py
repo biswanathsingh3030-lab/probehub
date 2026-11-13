@@ -11,6 +11,8 @@ class Settings:
     database_url: str
     host: str
     port: int
+    api_token: str
+    max_body_bytes: int
 
 
 def load_settings() -> Settings:
@@ -21,5 +23,7 @@ def load_settings() -> Settings:
             "DATABASE_URL", "postgresql://biswa@127.0.0.1:5432/probehub"
         ),
         host=os.environ.get("HUB_HOST", "127.0.0.1"),
-        port=int(os.environ.get("HUB_PORT", "8000")),
+        port=int(os.environ.get("HUB_PORT", "8100")),
+        api_token=os.environ.get("HUB_API_TOKEN", ""),
+        max_body_bytes=int(os.environ.get("HUB_MAX_BODY_BYTES", str(1024 * 1024))),
     )

@@ -24,9 +24,20 @@ def store():
     return FakeStore()
 
 
+TOKEN = "test-token"
+AUTH = {"Authorization": f"Bearer {TOKEN}"}
+
+
 @pytest.fixture
 def client(store):
-    with TestClient(create_app(store=store)) as c:
+    with TestClient(create_app(store=store, token=TOKEN, max_body_bytes=2048), headers=AUTH) as c:
+        yield c
+
+
+@pytest.fixture
+def anon(store):
+    """Client that sends no credentials."""
+    with TestClient(create_app(store=store, token=TOKEN, max_body_bytes=2048)) as c:
         yield c
 
 
@@ -82,5 +93,47 @@ def test_health_ok(client):
 
 
 def test_health_db_down():
-    with TestClient(create_app(store=FakeStore(healthy=False))) as c:
+    with TestClient(create_app(store=FakeStore(healthy=False), token=TOKEN)) as c:
         assert c.get("/health").status_code == 503
+
+
+@pytest.mark.parametrize(
+    "headers",
+    [{}, {"Authorization": "Bearer wrong"}, {"Authorization": TOKEN}, {"Authorization": "Basic abc"}],
+)
+def test_ingest_requires_valid_token(anon, store, headers):
+    resp = anon.post("/api/v1/data", json=VALID, headers=headers)
+    assert resp.status_code == 401
+    assert store.rows == []
+
+
+def test_health_is_open_without_token(anon):
+    assert anon.get("/health").status_code == 200
+
+
+def test_oversized_body_rejected_by_content_length(client, store):
+    big = {**VALID, "data": {"blob": "x" * 5000}}
+    assert client.post("/api/v1/data", json=big).status_code == 413
+    assert store.rows == []
+
+
+def test_oversized_chunked_body_rejected(client, store):
+    def chunks():
+        yield b'{"probe_id": "p", "category": "system", "collected_at": "2026-11-11T16:45:00Z", "data": {"b": "'
+        yield b"x" * 5000
+        yield b'"}}'
+
+    resp = client.post("/api/v1/data", content=chunks(), headers={"Content-Type": "application/json"})
+    assert resp.status_code == 413
+    assert store.rows == []
+
+
+def test_body_under_limit_accepted(client):
+    assert client.post("/api/v1/data", json=VALID).status_code == 201
+
+
+def test_open_when_no_token_configured(store):
+    with TestClient(create_app(store=store, token="", max_body_bytes=2048)) as c:
+        assert c.post("/api/v1/data", json=VALID).status_code == 201
+        big = {**VALID, "data": {"blob": "x" * 5000}}
+        assert c.post("/api/v1/data", json=big).status_code == 413  # size limit still applies

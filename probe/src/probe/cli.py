@@ -15,8 +15,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(prog="probe", description="Collect data and send it to ProbeHub.")
     parser.add_argument(
         "--hub-url",
-        default=os.environ.get("PROBEHUB_URL", "http://127.0.0.1:8000"),
-        help="hub base URL (env PROBEHUB_URL, default http://127.0.0.1:8000)",
+        default=os.environ.get("PROBEHUB_URL", "http://127.0.0.1:8100"),
+        help="hub base URL (env PROBEHUB_URL, default http://127.0.0.1:8100)",
+    )
+    parser.add_argument(
+        "--token",
+        default=os.environ.get("PROBEHUB_TOKEN", ""),
+        help="hub API token (env PROBEHUB_TOKEN; prefer the env var, flags show up in `ps`)",
     )
     parser.add_argument(
         "--probe-id",
@@ -49,7 +54,7 @@ def run_once(args: argparse.Namespace) -> bool:
         print(json.dumps(envelope, indent=2))
         return True
     try:
-        result = send(args.hub_url, envelope)
+        result = send(args.hub_url, envelope, token=args.token)
     except SendError as exc:
         print(f"probe: send failed: {exc}", file=sys.stderr)
         return False

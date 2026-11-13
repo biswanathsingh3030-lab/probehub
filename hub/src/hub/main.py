@@ -7,11 +7,17 @@ from fastapi.responses import JSONResponse
 
 from hub.config import load_settings
 from hub.db import PostgresStore
+from hub.guard import Guard
 from hub.schemas import IngestResult, ProbeEnvelope
 
 
-def create_app(store=None) -> FastAPI:
-    """Build the app. Pass `store` to inject a storage backend (used by tests)."""
+def create_app(store=None, token: str | None = None, max_body_bytes: int | None = None) -> FastAPI:
+    """Build the app. `store`, `token` and `max_body_bytes` can be injected (used by tests);
+    otherwise they come from settings. An empty token means the API is open (no auth)."""
+    if token is None or max_body_bytes is None:
+        settings = load_settings()
+        token = settings.api_token if token is None else token
+        max_body_bytes = settings.max_body_bytes if max_body_bytes is None else max_body_bytes
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -45,7 +51,6 @@ def create_app(store=None) -> FastAPI:
         )
         return IngestResult(id=row_id, received_at=received_at)
 
+    app.add_middleware(Guard, token=token, max_body_bytes=max_body_bytes)
     return app
 
-
-app = create_app()

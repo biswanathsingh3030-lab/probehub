@@ -44,7 +44,9 @@ def fake_hub():
     class Handler(BaseHTTPRequestHandler):
         def do_POST(self):
             body = self.rfile.read(int(self.headers["Content-Length"]))
-            received.append((self.path, self.headers["Content-Type"], json.loads(body)))
+            received.append(
+                (self.path, self.headers["Content-Type"], json.loads(body), self.headers.get("Authorization"))
+            )
             status = 201 if self.path == "/api/v1/data" else 404
             self.send_response(status)
             self.send_header("Content-Type", "application/json")
@@ -65,11 +67,12 @@ def test_send_posts_json(fake_hub):
     url, received = fake_hub
     result = send(url + "/", build_envelope("p1", "system", {"k": 1}))
     assert result["id"] == 7
-    path, content_type, body = received[0]
+    path, content_type, body, auth = received[0]
     assert path == "/api/v1/data"
     assert content_type == "application/json"
     assert body["probe_id"] == "p1"
     assert body["category"] == "system"
+    assert auth is None  # no token configured -> no header
 
 
 def test_send_unreachable_raises():
@@ -90,3 +93,14 @@ def test_cli_dry_run_prints_envelope(capsys):
     assert env["probe_id"] == "p1"
     assert env["category"] == "system"
     assert "hostname" in env["data"]
+
+
+def test_send_includes_bearer_token(fake_hub):
+    url, received = fake_hub
+    send(url, build_envelope("p1", "system", {}), token="secret")
+    assert received[0][3] == "Bearer secret"
+
+
+def test_cli_reads_token_from_env(fake_hub, monkeypatch):
+    monkeypatch.setenv("PROBEHUB_TOKEN", "from-env")
+    assert cli.parse_args(["--probe-id", "p1"]).token == "from-env"
