@@ -148,6 +148,15 @@ python -m probe --dry-run                  # print the JSON envelope, don't send
 python -m pytest hub/tests probe/tests     # run tests
 ```
 
+### Shipping the probe
+
+```bash
+python3 probe/build_pyz.py --hub-url <url> -o dist/probe.pyz   # builds a single-file .pyz with the hub URL baked in, so it runs with no flags
+python3 dist/probe.pyz service install|uninstall|status        # install: registers a launchd LaunchAgent that runs on login and on an interval; uninstall: removes it; status: reports whether it's loaded
+```
+
+macOS-only for now.
+
 ## Conventions
 
 - The probe must stay **stdlib-only** so it can be copied onto any machine that has Python 3.10+
@@ -207,7 +216,7 @@ Phase 2: VPS / remote clients
 - [ ] T10b Rate limiting
 - [ ] T11 Probe offline buffering, so data is resent after the hub comes back
 - [x] T12a Hub runs as a pm2 service (`ecosystem.config.js`)
-- [ ] T12b Run the probe as a service on client machines (systemd or pm2)
+- [ ] T12b Run the probe as a service on client machines (macOS via launchd `service install` done; Linux/systemd still open)
 - [x] T14 `category` key in the envelope + per-category collectors on the probe
 - [ ] T15 Photo category (base64). Needs a request-size limit on the hub (T10) and probably
   storing images outside JSONB (file/object storage) once volume grows

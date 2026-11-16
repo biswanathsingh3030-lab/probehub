@@ -29,6 +29,18 @@ Endpoints:
 - `POST /api/v1/data`: takes `{"probe_id": "...", "category": "system", "collected_at": "<ISO-8601>", "data": {...}}`
 - `GET /health`: reports whether the hub and its DB are up
 
+## Shipping the probe
+
+Package the probe as a single portable `.pyz` with the hub URL baked in, then install it as a
+macOS login service (no pm2 — pm2 stays reserved for the hub):
+
+```bash
+python3 probe/build_pyz.py --hub-url <url> -o dist/probe.pyz   # single-file .pyz, no flags needed at runtime
+python3 dist/probe.pyz service install|uninstall|status        # registers/removes a launchd LaunchAgent, or reports its status
+```
+
+macOS-only for now.
+
 ## Public deployment
 
 The hub listens on `127.0.0.1:8100` and is published on a VPS through an autossh reverse tunnel
