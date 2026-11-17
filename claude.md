@@ -128,7 +128,7 @@ The hub reads its settings from environment variables, or from `.env` at the rep
 | `HUB_HOST`     | `127.0.0.1`                                   | keep `127.0.0.1`: the VPS tunnel reaches it locally, so nothing else needs to bind publicly |
 | `HUB_PORT`     | `8100`                                        | 8000 is reserved for primebuild's nginx `/api/` |
 | `HUB_API_TOKEN` | *(empty)*                                    | empty = open endpoint, no auth (current choice). If set, probes must send `Authorization: Bearer <token>` |
-| `HUB_MAX_BODY_BYTES` | `1048576`                               | requests over this get `413`. The `screenshot` category needs more: base64 inflates a PNG by ~4/3, so a Retina capture lands around 1.13 MiB. `.env.example` sets 8388608 (8 MiB) |
+| `HUB_MAX_BODY_BYTES` | `10485760`                               | requests over this get `413`; 10 MiB; raise it further if photos need it |
 
 The probe takes CLI flags, or env vars as a fallback: `--hub-url` / `PROBEHUB_URL`
 (default `http://127.0.0.1:8100`), `--probe-id` / `PROBE_ID`, `--token` / `PROBEHUB_TOKEN` (prefer the env var), `--category` (default `all`), `--interval` (seconds; 0 = send once),

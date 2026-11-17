@@ -25,5 +25,5 @@ def load_settings() -> Settings:
         host=os.environ.get("HUB_HOST", "127.0.0.1"),
         port=int(os.environ.get("HUB_PORT", "8100")),
         api_token=os.environ.get("HUB_API_TOKEN", ""),
-        max_body_bytes=int(os.environ.get("HUB_MAX_BODY_BYTES", str(1024 * 1024))),
+        max_body_bytes=int(os.environ.get("HUB_MAX_BODY_BYTES", str(10 * 1024 * 1024))),
     )
