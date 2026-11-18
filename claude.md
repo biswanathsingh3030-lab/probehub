@@ -58,7 +58,7 @@ probehub/
 ```
 
 - `probe_id`: string of 1–128 characters. Defaults to the client's hostname.
-- `category`: what kind of data this is (e.g. `system`, later `photo`). Required. Lowercase slug,
+- `category`: what kind of data this is (`system`, `screenshot`). Required. Lowercase slug,
   1–64 characters, matching `^[a-z0-9][a-z0-9_.-]{0,63}$`. The hub stores it in its own indexed column.
 - `collected_at`: ISO-8601 datetime. Include a timezone.
 - `data`: any JSON object. The hub doesn't check what's inside it.
@@ -71,8 +71,11 @@ Storage is a single table, `probe_data`, with columns `id`, `probe_id`, `categor
 `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` migrations for older tables.
 
 On the probe, each category has a collector function registered in `COLLECTORS` in
-`probe/src/probe/collector.py`. Only `system` exists today. To add one (e.g. `photo`), write a
-function that returns a dict and register it. Binary data such as images goes in as base64 strings.
+`probe/src/probe/collector.py`. Default is `all` (system metrics + a `screenshot` key in one payload, so one send carries everything). Single-purpose: `system` (host metrics) and `screenshot`
+(base64 PNGs of every connected display as an `images` array, one per monitor, main first, via `screencapture` on macOS and `gnome-screenshot`/`import` on Linux;
+unsupported platforms return `{"error": ..., "platform": ...}` rather than raising). To add one,
+write a function that returns a dict and register it. Binary data such as images goes in as
+base64 strings.
 
 ## Deployment (hub published on the VPS)
 
@@ -125,10 +128,10 @@ The hub reads its settings from environment variables, or from `.env` at the rep
 | `HUB_HOST`     | `127.0.0.1`                                   | keep `127.0.0.1`: the VPS tunnel reaches it locally, so nothing else needs to bind publicly |
 | `HUB_PORT`     | `8100`                                        | 8000 is reserved for primebuild's nginx `/api/` |
 | `HUB_API_TOKEN` | *(empty)*                                    | empty = open endpoint, no auth (current choice). If set, probes must send `Authorization: Bearer <token>` |
-| `HUB_MAX_BODY_BYTES` | `1048576`                               | requests over this get `413`; raise it for photos |
+| `HUB_MAX_BODY_BYTES` | `1048576`                               | requests over this get `413`. The `screenshot` category needs more: base64 inflates a PNG by ~4/3, so a Retina capture lands around 1.13 MiB. `.env.example` sets 8388608 (8 MiB) |
 
 The probe takes CLI flags, or env vars as a fallback: `--hub-url` / `PROBEHUB_URL`
-(default `http://127.0.0.1:8100`), `--probe-id` / `PROBE_ID`, `--token` / `PROBEHUB_TOKEN` (prefer the env var), `--category` (default `system`), `--interval` (seconds; 0 = send once),
+(default `http://127.0.0.1:8100`), `--probe-id` / `PROBE_ID`, `--token` / `PROBEHUB_TOKEN` (prefer the env var), `--category` (default `all`), `--interval` (seconds; 0 = send once),
 and `--dry-run` (print the envelope instead of sending it).
 
 ## Commands
@@ -141,8 +144,9 @@ cp .env.example .env                       # then set the real DB password
 python -m hub                              # run hub in the foreground (dev)
 pm2 start ecosystem.config.js              # run hub as a service (probehub-hub)
 pm2 logs probehub-hub                      # hub logs; restart after code/.env changes
-python -m probe                            # collect + send once
+python -m probe                            # collect everything (system + screenshot) + send once
 python -m probe --interval 60              # send every 60 s
+python -m probe --category screenshot      # capture the screen, send as base64 PNG
 python -m probe --dry-run                  # print the JSON envelope, don't send
 
 python -m pytest hub/tests probe/tests     # run tests
@@ -218,6 +222,8 @@ Phase 2: VPS / remote clients
 - [x] T12a Hub runs as a pm2 service (`ecosystem.config.js`)
 - [ ] T12b Run the probe as a service on client machines (macOS via launchd `service install` done; Linux/systemd still open)
 - [x] T14 `category` key in the envelope + per-category collectors on the probe
-- [ ] T15 Photo category (base64). Needs a request-size limit on the hub (T10) and probably
-  storing images outside JSONB (file/object storage) once volume grows
+- [x] T15 `screenshot` category (base64 PNG) on the probe: `python -m probe --category screenshot`.
+  macOS (`screencapture`) and Linux (`gnome-screenshot` / ImageMagick `import`); other platforms get
+  an `{"error": ..., "platform": ...}` dict. Still open: storing images outside JSONB
+  (file/object storage) once volume grows, and raising `HUB_MAX_BODY_BYTES` above 1 MiB for large screens
 - [ ] T13 Read API for the stored data (filter by probe and time range)

@@ -86,7 +86,7 @@ def build_plist(
 def install(
     pyz_path=None,
     probe_id: str = "",
-    category: str = "system",
+    category: str = "all",
     token: str = "",
     interval: int = 300,
 ) -> None:

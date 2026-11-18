@@ -34,6 +34,30 @@ PYPROJECT_PATH = PROBE_DIR / "pyproject.toml"
 DEFAULT_OUTPUT = REPO_ROOT / "dist" / "probe.pyz"
 
 
+def read_dotenv(key: str) -> str | None:
+    """Read a single KEY from the repo-root .env, or None if absent.
+
+    Deliberately tiny (no python-dotenv dep): the probe stays stdlib-only and
+    this is a dev-time build tool. Handles `KEY=value`, skips blanks/comments,
+    strips surrounding quotes, and ignores an optional `export ` prefix.
+    """
+    env_path = REPO_ROOT / ".env"
+    try:
+        lines = env_path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return None
+    for raw in lines:
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("export "):
+            line = line[len("export "):].lstrip()
+        name, sep, value = line.partition("=")
+        if sep and name.strip() == key:
+            return value.strip().strip('"').strip("'")
+    return None
+
+
 def read_version() -> str:
     """Read [project].version from probe/pyproject.toml using tomllib (3.11+)."""
     try:
@@ -126,8 +150,18 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Build a single-file probe.pyz with a real hub URL (and optional token) baked in."
     )
-    parser.add_argument("--hub-url", required=True, help="hub base URL to bake in as DEFAULT_HUB_URL")
-    parser.add_argument("--token", default="", help="hub API token to bake in as DEFAULT_TOKEN (default: empty)")
+    parser.add_argument(
+        "--hub-url",
+        default=None,
+        help="hub base URL to bake in as DEFAULT_HUB_URL "
+        "(default: PROBEHUB_URL from the repo-root .env)",
+    )
+    parser.add_argument(
+        "--token",
+        default=None,
+        help="hub API token to bake in as DEFAULT_TOKEN "
+        "(default: PROBEHUB_TOKEN from .env, else empty)",
+    )
     parser.add_argument(
         "-o",
         "--output",
@@ -140,7 +174,19 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    output = build(args.hub_url, args.token, args.output)
+
+    # --hub-url wins; otherwise fall back to PROBEHUB_URL in the repo-root .env.
+    hub_url = args.hub_url or read_dotenv("PROBEHUB_URL")
+    if not hub_url:
+        raise SystemExit(
+            "error: no hub URL. Pass --hub-url, or set PROBEHUB_URL in the repo-root .env"
+        )
+
+    # --token wins (including an explicit empty ""); else PROBEHUB_TOKEN; else empty.
+    token = args.token if args.token is not None else (read_dotenv("PROBEHUB_TOKEN") or "")
+
+    print(f"baking hub URL: {hub_url}" + ("  (+token)" if token else "  (no token)"))
+    output = build(hub_url, token, args.output)
     size = output.stat().st_size
     print(f"built {output} ({size:,} bytes)")
     return 0
