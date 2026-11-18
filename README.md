@@ -73,6 +73,6 @@ curl -i http://<vps-ip>:8100/health
 ```
 
 Auth is optional (`HUB_API_TOKEN`) and currently off; there is no TLS yet. Request bodies are capped
-by `HUB_MAX_BODY_BYTES` (1 MiB). Details, setup steps and warnings are in `claude.md` under *Deployment*.
+by `HUB_MAX_BODY_BYTES` (10 MiB). Details, setup steps and warnings are in `claude.md` under *Deployment*.
 
 See `claude.md` for the design notes and the task list.
