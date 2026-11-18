@@ -6,4 +6,5 @@ __pycache__/
 build/
 dist/
 .env
-docs/vps-tunnel-observations.md
+docs/
+/-

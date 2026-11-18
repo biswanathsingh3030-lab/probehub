@@ -15,6 +15,7 @@ cp .env.example .env          # set the DB password and HUB_API_TOKEN
 
 python -m hub                 # hub on http://127.0.0.1:8100
 PROBEHUB_URL=http://127.0.0.1:8100 PROBEHUB_TOKEN=<token> python -m probe   # in another shell: collect and send once
+python -m probe --category screenshot                                        # or capture and send a screenshot
 ```
 
 To run the hub as a service under pm2:
@@ -28,6 +29,26 @@ Endpoints:
 
 - `POST /api/v1/data`: takes `{"probe_id": "...", "category": "system", "collected_at": "<ISO-8601>", "data": {...}}`
 - `GET /health`: reports whether the hub and its DB are up
+
+## Probe categories
+
+The probe supports multiple data categories via `--category`:
+
+- **`all`** (default): everything in one payload — the `system` metrics at the top level plus a
+  `screenshot` key. Nothing to choose; this is what `python -m probe` and the launchd service send.
+- **`system`**: OS metrics only — hostname, CPU count, memory, disk, load average, uptime
+- **`screenshot`**: Captures every connected display and sends them as an array of base64-encoded PNGs: `{"images": [<main display>, <extra monitor>, ...], "count": N, "format": "png", "timestamp": ...}`. On macOS you get one image per monitor (main first). On Linux the whole desktop comes back as a single stitched image. Returns an error dict on other platforms. Size: roughly 0.3–1.4 MiB of base64 per display.
+
+Examples:
+
+```bash
+python -m probe                         # collect everything and send once (category all)
+python -m probe --category system       # system metrics only
+python -m probe --category screenshot   # capture and send one screenshot
+python -m probe --category screenshot --interval 60  # send screenshot every 60 seconds
+```
+
+**Note on size limits:** base64 inflates a PNG by ~4/3, so one Retina capture (~850 KiB) arrives as ~1.13 MiB, and every extra monitor adds its own image. That would be rejected with `413` at the 1 MiB code default. `.env.example` therefore sets `HUB_MAX_BODY_BYTES=8388608` (8 MiB); restart the hub after changing it.
 
 ## Shipping the probe
 
